@@ -1,0 +1,56 @@
+version: "3.9"
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ai_crm_backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - crm_data:/data
+    environment:
+      - DATABASE_URL=sqlite:////data/sales_crm.db
+      - BACKEND_URL=http://backend:8000
+      - FRONTEND_URL=http://frontend:8501
+      - GOOGLE_REDIRECT_URI=http://localhost:8000/auth/google/callback
+    env_file:
+      - .env
+    networks:
+      - crm_net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: ai_crm_frontend
+    restart: unless-stopped
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./frontend:/app
+    environment:
+      - BACKEND_URL=http://backend:8000
+    env_file:
+      - .env
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - crm_net
+
+volumes:
+  crm_data:
+
+networks:
+  crm_net:
+    driver: bridge
